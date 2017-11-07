@@ -10,37 +10,57 @@
 ros::Publisher asv_helm_pub;
 
 double heading;
+double rudder;
+double throttle;
 ros::Time last_time;
 
 void twistCallback(const geometry_msgs::TwistStamped::ConstPtr& msg)
 {
+    throttle = msg->twist.linear.x;
+    rudder = -msg->twist.angular.z;
+    
+    last_time = msg->header.stamp;
+}
+
+void sendHeadingHold(const ros::TimerEvent event)
+{
     asv_msgs::HeadingHold asvMsg;
     if (!last_time.isZero())
     {
-        ros::Duration delta_t = msg->header.stamp - last_time;
-        heading -= msg->twist.angular.z*delta_t.toSec();
-        heading = fmod(heading,M_PI*2.0);
-        if(heading < 0.0)
-            heading += M_PI*2.0;
+        if(event.last_real-last_time>ros::Duration(.5))
+        {
+            throttle = 0.0;
+            rudder = 0.0;
+        }
     }
+
+    ros::Duration delta_t = event.current_real-event.last_real;
+    heading += rudder*delta_t.toSec();
+    heading = fmod(heading,M_PI*2.0);
+    if(heading < 0.0)
+        heading += M_PI*2.0;
+    
     asvMsg.heading.heading = heading;
     asvMsg.thrust.type = asv_msgs::Thrust::THRUST_THROTTLE;
-    asvMsg.thrust.value = msg->twist.linear.x;
-    asvMsg.header.stamp = msg->header.stamp;
+    asvMsg.thrust.value = throttle;
+    asvMsg.header.stamp = event.current_real;
     asv_helm_pub.publish(asvMsg);
-    last_time = msg->header.stamp;
 }
 
 int main(int argc, char **argv)
 {
     heading = 0.0;
+    throttle = 0.0;
+    rudder = 0.0;
+    
     ros::init(argc, argv, "asv_helm");
     ros::NodeHandle n;
     
     asv_helm_pub = n.advertise<asv_msgs::HeadingHold>("/control/drive/heading_hold",1);
-    heading = 0.0;
 
     ros::Subscriber asv_helm_sub = n.subscribe("/cmd_vel",5,twistCallback);
+    
+    ros::Timer timer = n.createTimer(ros::Duration(0.1),sendHeadingHold);
     
     ros::spin();
     
