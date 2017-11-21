@@ -5,6 +5,7 @@
 
 #include "ros/ros.h"
 #include "asv_msgs/HeadingHold.h"
+#include "asv_msgs/HeadingStamped.h"
 #include "geometry_msgs/TwistStamped.h"
 
 ros::Publisher asv_helm_pub;
@@ -14,12 +15,19 @@ double rudder;
 double throttle;
 ros::Time last_time;
 
+double last_boat_heading;
+
 void twistCallback(const geometry_msgs::TwistStamped::ConstPtr& msg)
 {
     throttle = msg->twist.linear.x;
     rudder = -msg->twist.angular.z;
     
     last_time = msg->header.stamp;
+}
+
+void headingCallback(const asv_msgs::HeadingStamped::ConstPtr& msg)
+{
+    last_boat_heading = msg->heading.heading;
 }
 
 void sendHeadingHold(const ros::TimerEvent event)
@@ -35,7 +43,7 @@ void sendHeadingHold(const ros::TimerEvent event)
     }
 
     ros::Duration delta_t = event.current_real-event.last_real;
-    heading += rudder*delta_t.toSec();
+    heading = last_boat_heading + rudder; //*delta_t.toSec();
     heading = fmod(heading,M_PI*2.0);
     if(heading < 0.0)
         heading += M_PI*2.0;
@@ -52,6 +60,7 @@ int main(int argc, char **argv)
     heading = 0.0;
     throttle = 0.0;
     rudder = 0.0;
+    last_boat_heading = 0.0;
     
     ros::init(argc, argv, "asv_helm");
     ros::NodeHandle n;
@@ -59,6 +68,7 @@ int main(int argc, char **argv)
     asv_helm_pub = n.advertise<asv_msgs::HeadingHold>("/control/drive/heading_hold",1);
 
     ros::Subscriber asv_helm_sub = n.subscribe("/cmd_vel",5,twistCallback);
+    ros::Subscriber asv_heading_sub = n.subscribe("/sensor/vehicle/heading",5,headingCallback);
     
     ros::Timer timer = n.createTimer(ros::Duration(0.1),sendHeadingHold);
     
