@@ -11,6 +11,8 @@ find_package(catkin REQUIRED COMPONENTS
   asv_msgs
   asv_srvs
   geometry_msgs
+  geographic_msgs
+  mission_plan
   roscpp
 )
 
