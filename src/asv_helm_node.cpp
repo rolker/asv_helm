@@ -97,7 +97,8 @@ void sendHeadingHold(const ros::TimerEvent event)
         heading += M_PI*2.0;
     
     asvMsg.heading.heading = heading;
-    asvMsg.thrust.type = asv_msgs::Thrust::THRUST_THROTTLE;
+    //asvMsg.thrust.type = asv_msgs::Thrust::THRUST_THROTTLE;
+    asvMsg.thrust.type = asv_msgs::Thrust::THRUST_SPEED;
     asvMsg.thrust.value = throttle;
     asvMsg.header.stamp = event.current_real;
     if(doDesired)
