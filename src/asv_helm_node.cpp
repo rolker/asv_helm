@@ -59,7 +59,7 @@ void headingCallback(const asv_msgs::HeadingStamped::ConstPtr& msg)
     last_boat_heading = msg->heading.heading;
     mission_plan::NavEulerStamped nes;
     nes.header = msg->header;
-    nes.orientation.heading = msg->heading.heading;
+    nes.orientation.heading = msg->heading.heading*180.0/M_PI;
     heading_pub.publish(nes);
 }
 
