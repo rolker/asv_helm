@@ -14,6 +14,8 @@ find_package(catkin REQUIRED COMPONENTS
   geographic_msgs
   mission_plan
   roscpp
+  rosbag
+  project11
 )
 
 ## System dependencies are found with CMake's conventions
@@ -108,7 +110,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES asv_helm
-#  CATKIN_DEPENDS asv_msgs asv_srvs geometry_msgs roscpp
+  CATKIN_DEPENDS asv_msgs asv_srvs geometry_msgs roscpp project11
 #  DEPENDS system_lib
 )
 

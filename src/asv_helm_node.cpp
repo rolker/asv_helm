@@ -13,6 +13,10 @@
 #include "geometry_msgs/TwistStamped.h"
 #include "geographic_msgs/GeoPointStamped.h"
 #include "mission_plan/NavEulerStamped.h"
+#include "project11/mutex_protected_bag_writer.h"
+#include <regex>
+#include "boost/date_time/posix_time/posix_time.hpp"
+
 
 ros::Publisher asv_helm_pub;
 ros::Publisher asv_inhibit_pub;
@@ -32,6 +36,9 @@ ros::Time desired_speed_time;
 double desired_heading;
 ros::Time desired_heading_time;
 
+MutexProtectedBagWriter log_bag;
+
+
 void twistCallback(const geometry_msgs::TwistStamped::ConstPtr& msg)
 {
     throttle = msg->twist.linear.x;
@@ -47,11 +54,14 @@ void positionCallback(const asv_msgs::BasicPositionStamped::ConstPtr& inmsg)
     gps.position.latitude = inmsg->basic_position.position.latitude;
     gps.position.longitude = inmsg->basic_position.position.longitude;
     position_pub.publish(gps);
+    log_bag.write("/position",ros::Time::now(),gps);
     
     geometry_msgs::TwistStamped ts;
     ts.header = inmsg->header;
     ts.twist.linear.x = inmsg->basic_position.sog;
     speed_pub.publish(ts);
+    log_bag.write("/sog",ros::Time::now(),ts);
+
 }
 
 void headingCallback(const asv_msgs::HeadingStamped::ConstPtr& msg)
@@ -61,6 +71,7 @@ void headingCallback(const asv_msgs::HeadingStamped::ConstPtr& msg)
     nes.header = msg->header;
     nes.orientation.heading = msg->heading.heading*180.0/M_PI;
     heading_pub.publish(nes);
+    log_bag.write("/heading",ros::Time::now(),nes);
 }
 
 void desiredSpeedCallback(const geometry_msgs::TwistStamped::ConstPtr& inmsg)
@@ -118,6 +129,7 @@ void sendHeadingHold(const ros::TimerEvent event)
         }
     }
     asv_helm_pub.publish(asvMsg);
+    log_bag.write("/control/drive/heading_hold",ros::Time::now(),asvMsg);
 }
 
 void activeCallback(const std_msgs::Bool::ConstPtr& inmsg)
@@ -154,6 +166,12 @@ int main(int argc, char **argv)
     
     ros::init(argc, argv, "asv_helm");
     ros::NodeHandle n;
+
+    boost::posix_time::ptime now = ros::WallTime::now().toBoost();
+    std::string iso_now = std::regex_replace(boost::posix_time::to_iso_extended_string(now),std::regex(":"),"-");
+    std::string log_filename = "nodes/asv_helm-"+iso_now+".bag";
+    log_bag.open(log_filename, rosbag::bagmode::Write);
+
     
     asv_helm_pub = n.advertise<asv_msgs::HeadingHold>("/control/drive/heading_hold",1);
     asv_inhibit_pub = n.advertise<std_msgs::Bool>("/control/drive/inhibit",1,true);
@@ -171,6 +189,8 @@ int main(int argc, char **argv)
     ros::Timer timer = n.createTimer(ros::Duration(0.1),sendHeadingHold);
     
     ros::spin();
+    
+    log_bag.close();
     
     return 0;
 }
