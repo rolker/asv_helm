@@ -12,7 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   asv_srvs
   geometry_msgs
   geographic_msgs
-  mission_plan
+  marine_msgs
   roscpp
   rosbag
   project11

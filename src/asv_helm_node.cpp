@@ -12,7 +12,7 @@
 #include "asv_srvs/PilotControl.h"
 #include "geometry_msgs/TwistStamped.h"
 #include "geographic_msgs/GeoPointStamped.h"
-#include "mission_plan/NavEulerStamped.h"
+#include "marine_msgs/NavEulerStamped.h"
 #include "project11/mutex_protected_bag_writer.h"
 #include <regex>
 #include "boost/date_time/posix_time/posix_time.hpp"
@@ -67,7 +67,7 @@ void positionCallback(const asv_msgs::BasicPositionStamped::ConstPtr& inmsg)
 void headingCallback(const asv_msgs::HeadingStamped::ConstPtr& msg)
 {
     last_boat_heading = msg->heading.heading;
-    mission_plan::NavEulerStamped nes;
+    marine_msgs::NavEulerStamped nes;
     nes.header = msg->header;
     nes.orientation.heading = msg->heading.heading*180.0/M_PI;
     heading_pub.publish(nes);
@@ -80,7 +80,7 @@ void desiredSpeedCallback(const geometry_msgs::TwistStamped::ConstPtr& inmsg)
     desired_speed_time = inmsg->header.stamp;
 }
 
-void desiredHeadingCallback(const mission_plan::NavEulerStamped::ConstPtr& inmsg)
+void desiredHeadingCallback(const marine_msgs::NavEulerStamped::ConstPtr& inmsg)
 {
     desired_heading = inmsg->orientation.heading;
     desired_heading_time = inmsg->header.stamp;
@@ -175,7 +175,7 @@ int main(int argc, char **argv)
     
     asv_helm_pub = n.advertise<asv_msgs::HeadingHold>("/control/drive/heading_hold",1);
     asv_inhibit_pub = n.advertise<std_msgs::Bool>("/control/drive/inhibit",1,true);
-    heading_pub = n.advertise<mission_plan::NavEulerStamped>("/heading",1);
+    heading_pub = n.advertise<marine_msgs::NavEulerStamped>("/heading",1);
     position_pub = n.advertise<geographic_msgs::GeoPointStamped>("/position",1);
     speed_pub = n.advertise<geometry_msgs::TwistStamped>("/sog",1);
 
