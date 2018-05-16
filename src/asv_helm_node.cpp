@@ -5,6 +5,7 @@
 
 #include "ros/ros.h"
 #include "std_msgs/Bool.h"
+#include "std_msgs/Float32.h"
 #include "asv_msgs/HeadingHold.h"
 #include "asv_msgs/HeadingStamped.h"
 #include "asv_msgs/BasicPositionStamped.h"
@@ -16,7 +17,7 @@
 #include "project11/mutex_protected_bag_writer.h"
 #include <regex>
 #include "boost/date_time/posix_time/posix_time.hpp"
-
+#include <iostream>
 
 ros::Publisher asv_helm_pub;
 ros::Publisher asv_inhibit_pub;
@@ -35,6 +36,9 @@ double desired_speed;
 ros::Time desired_speed_time;
 double desired_heading;
 ros::Time desired_heading_time;
+
+float obstacle_distance;
+float speed_modulation;
 
 MutexProtectedBagWriter log_bag;
 
@@ -72,6 +76,22 @@ void headingCallback(const asv_msgs::HeadingStamped::ConstPtr& msg)
     nes.orientation.heading = msg->heading.heading*180.0/M_PI;
     heading_pub.publish(nes);
     log_bag.write("/heading",ros::Time::now(),nes);
+}
+
+void obstacleDistanceCallback(const std_msgs::Float32::ConstPtr& inmsg)
+{
+    float stop_distance = 25.0;
+    float start_slowing_down_distance = 50.0;
+
+    obstacle_distance = inmsg->data;
+    if(obstacle_distance < 0 || obstacle_distance > start_slowing_down_distance)
+        speed_modulation = 1.0;
+    else if (obstacle_distance < stop_distance)
+        speed_modulation = 0.0;
+    else
+        speed_modulation = (obstacle_distance-stop_distance)/(start_slowing_down_distance-stop_distance);
+    std::cerr << "speed modulation: " << speed_modulation << std::endl;
+
 }
 
 void desiredSpeedCallback(const geometry_msgs::TwistStamped::ConstPtr& inmsg)
@@ -125,7 +145,7 @@ void sendHeadingHold(const ros::TimerEvent event)
         {
             asvMsg.header.stamp = desired_heading_time;
             asvMsg.heading.heading = desired_heading*M_PI/180.0;
-            asvMsg.thrust.value = desired_speed;
+            asvMsg.thrust.value = desired_speed*speed_modulation;
         }
     }
     asv_helm_pub.publish(asvMsg);
@@ -163,6 +183,8 @@ int main(int argc, char **argv)
     throttle = 0.0;
     rudder = 0.0;
     last_boat_heading = 0.0;
+    obstacle_distance = -1.0;
+    speed_modulation = 1.0;
     
     ros::init(argc, argv, "asv_helm");
     ros::NodeHandle n;
@@ -185,6 +207,7 @@ int main(int argc, char **argv)
     ros::Subscriber activesub = n.subscribe("/active",10,activeCallback);
     ros::Subscriber dspeed_sub = n.subscribe("/moos/desired_speed",10,desiredSpeedCallback);
     ros::Subscriber dheading_sub = n.subscribe("/moos/desired_heading",10,desiredHeadingCallback);
+    ros::Subscriber obstacle_distance_sub =  n.subscribe("/obstacle_distance",10,obstacleDistanceCallback);
     
     ros::Timer timer = n.createTimer(ros::Duration(0.1),sendHeadingHold);
     
