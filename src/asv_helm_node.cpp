@@ -24,6 +24,7 @@ ros::Publisher asv_inhibit_pub;
 ros::Publisher position_pub;
 ros::Publisher heading_pub;
 ros::Publisher speed_pub;
+ros::Publisher speed_modulation_pub;
 
 double heading;
 double rudder;
@@ -90,7 +91,11 @@ void obstacleDistanceCallback(const std_msgs::Float32::ConstPtr& inmsg)
         speed_modulation = 0.0;
     else
         speed_modulation = (obstacle_distance-stop_distance)/(start_slowing_down_distance-stop_distance);
-    std::cerr << "speed modulation: " << speed_modulation << std::endl;
+    //std::cerr << "speed modulation: " << speed_modulation << std::endl;
+    std_msgs::Float32 sm;
+    sm.data = speed_modulation;
+    speed_modulation_pub.publish(sm);
+    log_bag.write("/speed_modulation",ros::Time::now(),sm);
 
 }
 
@@ -200,6 +205,7 @@ int main(int argc, char **argv)
     heading_pub = n.advertise<marine_msgs::NavEulerStamped>("/heading",1);
     position_pub = n.advertise<geographic_msgs::GeoPointStamped>("/position",1);
     speed_pub = n.advertise<geometry_msgs::TwistStamped>("/sog",1);
+    speed_modulation_pub = n.advertise<std_msgs::Float32>("/speed_modulation",1);
 
     ros::Subscriber asv_helm_sub = n.subscribe("/cmd_vel",5,twistCallback);
     ros::Subscriber asv_position_sub = n.subscribe("/sensor/vehicle/position",10,positionCallback);
