@@ -17,7 +17,7 @@
 #include "project11/mutex_protected_bag_writer.h"
 #include <regex>
 #include "boost/date_time/posix_time/posix_time.hpp"
-#include <iostream>
+//#include <iostream>
 
 ros::Publisher asv_helm_pub;
 ros::Publisher asv_inhibit_pub;
@@ -90,7 +90,7 @@ void obstacleDistanceCallback(const std_msgs::Float32::ConstPtr& inmsg)
         speed_modulation = 0.0;
     else
         speed_modulation = (obstacle_distance-stop_distance)/(start_slowing_down_distance-stop_distance);
-    std::cerr << "speed modulation: " << speed_modulation << std::endl;
+    //std::cerr << "speed modulation: " << speed_modulation << std::endl;
 
 }
 
