@@ -6,14 +6,17 @@
 #include "ros/ros.h"
 #include "std_msgs/Bool.h"
 #include "std_msgs/Float32.h"
+#include "std_msgs/String.h"
 #include "asv_msgs/HeadingHold.h"
 #include "asv_msgs/HeadingStamped.h"
 #include "asv_msgs/BasicPositionStamped.h"
+#include "asv_msgs//VehicleStatus.h"
 #include "asv_srvs/VehicleState.h"
 #include "asv_srvs/PilotControl.h"
 #include "geometry_msgs/TwistStamped.h"
 #include "geographic_msgs/GeoPointStamped.h"
 #include "marine_msgs/NavEulerStamped.h"
+#include "marine_msgs/Heartbeat.h"
 #include "project11/mutex_protected_bag_writer.h"
 #include <regex>
 #include "boost/date_time/posix_time/posix_time.hpp"
@@ -24,6 +27,8 @@ ros::Publisher position_pub;
 ros::Publisher heading_pub;
 ros::Publisher speed_pub;
 ros::Publisher speed_modulation_pub;
+ros::Publisher heartbeat_pub;
+
 
 double heading;
 double rudder;
@@ -39,6 +44,11 @@ ros::Time desired_heading_time;
 
 float obstacle_distance;
 float speed_modulation;
+
+
+bool active;
+std::string helm_mode;
+
 
 MutexProtectedBagWriter log_bag;
 
@@ -157,6 +167,7 @@ void sendHeadingHold(const ros::TimerEvent event)
 
 void activeCallback(const std_msgs::Bool::ConstPtr& inmsg)
 {
+    active = inmsg->data;
     if(inmsg->data)
     {
         asv_srvs::VehicleState vs;
@@ -178,6 +189,111 @@ void activeCallback(const std_msgs::Bool::ConstPtr& inmsg)
         ros::service::call("/control/vehicle/pilot",pc);
     }
 }
+
+void helmModeCallback(const std_msgs::String::ConstPtr& inmsg)
+{
+    helm_mode = inmsg->data;
+}
+
+std::string boolToString(bool value)
+{
+    if(value)
+        return "true";
+    return "false";
+}
+
+void vehicleSatusCallback(const asv_msgs::VehicleStatus::ConstPtr& inmsg)
+{
+    marine_msgs::Heartbeat hb;
+    hb.header = inmsg->header;
+
+    marine_msgs::KeyValue kv;
+
+    kv.key = "active";
+    kv.value = boolToString(active);
+    hb.values.push_back(kv);
+    
+    kv.key = "helm_mode";
+    kv.value = helm_mode;
+    hb.values.push_back(kv);
+
+    kv.key = "state";
+    switch(inmsg->vehicle_state)
+    {
+        case asv_msgs::VehicleStatus::VP_STATE_RESET:
+            kv.value = "reset";
+            break;
+        case asv_msgs::VehicleStatus::VP_STATE_INITIAL:
+            kv.value = "initial";
+            break;
+        case asv_msgs::VehicleStatus::VP_STATE_CONFIG:
+            kv.value = "config";
+            break;
+        case asv_msgs::VehicleStatus::VP_STATE_ARMED:
+            kv.value = "armed";
+            break;
+        case asv_msgs::VehicleStatus::VP_STATE_PAUSE:
+            kv.value = "pause";
+            break;
+        case asv_msgs::VehicleStatus::VP_STATE_ACTIVE:
+            kv.value = "active";
+            break;
+        case asv_msgs::VehicleStatus::VP_STATE_RECOVER:
+            kv.value = "recover";
+            break;
+        case asv_msgs::VehicleStatus::VP_STATE_MANNED:
+            kv.value = "manned";
+            break;
+        case asv_msgs::VehicleStatus::VP_STATE_EMERGENCY:
+            kv.value = "emergency";
+            break;
+        default:
+            kv.value = "unknown";
+    }
+    hb.values.push_back(kv);
+    
+    
+    kv.key = "state_reason";
+    kv.value = inmsg->vehicle_state_reason;
+    hb.values.push_back(kv);
+    
+    kv.key = "pilot_control";
+    kv.value =inmsg->pilot_control;
+    hb.values.push_back(kv);
+    
+    kv.key = "ros_pilot_mode";
+    switch(inmsg->ros_pilot_mode)
+    {
+        case asv_msgs::VehicleStatus::PILOT_NOT_IN_COMMAND:
+            kv.value = "not in command";
+            break;
+        case asv_msgs::VehicleStatus::PILOT_INACTIVE:
+            kv.value = "inactive";
+            break;
+        case asv_msgs::VehicleStatus::PILOT_INHIBITED:
+            kv.value = "inhibited";
+            break;
+        case asv_msgs::VehicleStatus::PILOT_DIRECT_DRIVE:
+            kv.value = "direct drive";
+            break;
+        case asv_msgs::VehicleStatus::PILOT_HEADING_HOLD:
+            kv.value = "heading hold";
+            break;
+        case asv_msgs::VehicleStatus::PILOT_SEEK_POSITION:
+            kv.value = "seek position";
+            break;
+        case asv_msgs::VehicleStatus::PILOT_TRACK_FOLLOW:
+            kv.value = "track follow";
+            break;
+        default:
+            kv.value = "unknown";
+    }
+    hb.values.push_back(kv);
+    
+    heartbeat_pub.publish(hb);
+    log_bag.write("/heartbeat",ros::Time::now(),hb);
+}
+
 
 
 int main(int argc, char **argv)
@@ -204,6 +320,7 @@ int main(int argc, char **argv)
     position_pub = n.advertise<geographic_msgs::GeoPointStamped>("/position",1);
     speed_pub = n.advertise<geometry_msgs::TwistStamped>("/sog",1);
     speed_modulation_pub = n.advertise<std_msgs::Float32>("/speed_modulation",1);
+    heartbeat_pub = n.advertise<marine_msgs::Heartbeat>("/heartbeat", 10);
 
     ros::Subscriber asv_helm_sub = n.subscribe("/cmd_vel",5,twistCallback);
     ros::Subscriber asv_position_sub = n.subscribe("/sensor/vehicle/position",10,positionCallback);
@@ -212,6 +329,7 @@ int main(int argc, char **argv)
     ros::Subscriber dspeed_sub = n.subscribe("/moos/desired_speed",10,desiredSpeedCallback);
     ros::Subscriber dheading_sub = n.subscribe("/moos/desired_heading",10,desiredHeadingCallback);
     ros::Subscriber obstacle_distance_sub =  n.subscribe("/obstacle_distance",10,obstacleDistanceCallback);
+    ros::Subscriber vehicle_state_sub =  n.subscribe("/vehicle_status",10,vehicleSatusCallback);
     
     ros::Timer timer = n.createTimer(ros::Duration(0.1),sendHeadingHold);
     
