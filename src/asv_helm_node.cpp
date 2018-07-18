@@ -68,13 +68,15 @@ void positionCallback(const asv_msgs::BasicPositionStamped::ConstPtr& inmsg)
     gps.position.latitude = inmsg->basic_position.position.latitude;
     gps.position.longitude = inmsg->basic_position.position.longitude;
     position_pub.publish(gps);
-    log_bag.write("/position",ros::Time::now(),gps);
+    if(ros::Time::now() > ros::TIME_MIN)
+        log_bag.write("/position",ros::Time::now(),gps);
     
     geometry_msgs::TwistStamped ts;
     ts.header = inmsg->header;
     ts.twist.linear.x = inmsg->basic_position.sog;
     speed_pub.publish(ts);
-    log_bag.write("/sog",ros::Time::now(),ts);
+    if(ros::Time::now() > ros::TIME_MIN)
+        log_bag.write("/sog",ros::Time::now(),ts);
 
 }
 
@@ -85,7 +87,8 @@ void headingCallback(const asv_msgs::HeadingStamped::ConstPtr& msg)
     nes.header = msg->header;
     nes.orientation.heading = msg->heading.heading*180.0/M_PI;
     heading_pub.publish(nes);
-    log_bag.write("/heading",ros::Time::now(),nes);
+    if(ros::Time::now() > ros::TIME_MIN)
+        log_bag.write("/heading",ros::Time::now(),nes);
 }
 
 void obstacleDistanceCallback(const std_msgs::Float32::ConstPtr& inmsg)
@@ -103,7 +106,8 @@ void obstacleDistanceCallback(const std_msgs::Float32::ConstPtr& inmsg)
     std_msgs::Float32 sm;
     sm.data = speed_modulation;
     speed_modulation_pub.publish(sm);
-    log_bag.write("/speed_modulation",ros::Time::now(),sm);
+    if(ros::Time::now() > ros::TIME_MIN)
+        log_bag.write("/speed_modulation",ros::Time::now(),sm);
 
 }
 
@@ -160,9 +164,12 @@ void sendHeadingHold(const ros::TimerEvent event)
             asvMsg.heading.heading = desired_heading*M_PI/180.0;
             asvMsg.thrust.value = desired_speed*speed_modulation;
         }
+        //else
+          //  std::cerr << "asv_helm: desired values timeout: " << event.current_real << ", " << desired_heading_time << ", " << desired_speed_time << std::endl;
     }
     asv_helm_pub.publish(asvMsg);
-    log_bag.write("/control/drive/heading_hold",ros::Time::now(),asvMsg);
+    if(ros::Time::now() > ros::TIME_MIN)
+        log_bag.write("/control/drive/heading_hold",ros::Time::now(),asvMsg);
 }
 
 void activeCallback(const std_msgs::Bool::ConstPtr& inmsg)
@@ -291,7 +298,8 @@ void vehicleSatusCallback(const asv_msgs::VehicleStatus::ConstPtr& inmsg)
     hb.values.push_back(kv);
     
     heartbeat_pub.publish(hb);
-    log_bag.write("/heartbeat",ros::Time::now(),hb);
+    if(ros::Time::now() > ros::TIME_MIN)
+        log_bag.write("/heartbeat",ros::Time::now(),hb);
 }
 
 
