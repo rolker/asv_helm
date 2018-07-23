@@ -212,7 +212,7 @@ std::string boolToString(bool value)
 void vehicleSatusCallback(const asv_msgs::VehicleStatus::ConstPtr& inmsg)
 {
     marine_msgs::Heartbeat hb;
-    hb.header = inmsg->header;
+    hb.header.stamp = ros::Time::now();
 
     marine_msgs::KeyValue kv;
 
