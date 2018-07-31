@@ -20,6 +20,7 @@
 #include "project11/mutex_protected_bag_writer.h"
 #include <regex>
 #include "boost/date_time/posix_time/posix_time.hpp"
+#include "std_msgs/Int32.h"
 
 ros::Publisher asv_helm_pub;
 ros::Publisher asv_inhibit_pub;
@@ -48,6 +49,7 @@ float speed_modulation;
 
 bool active;
 std::string helm_mode;
+int moos_wpt_index = -1;
 
 
 MutexProtectedBagWriter log_bag;
@@ -202,6 +204,11 @@ void helmModeCallback(const std_msgs::String::ConstPtr& inmsg)
     helm_mode = inmsg->data;
 }
 
+void moosWptIndexCallback(const std_msgs::Int32::ConstPtr& inmsg)
+{
+    moos_wpt_index = inmsg->data;
+}
+
 std::string boolToString(bool value)
 {
     if(value)
@@ -222,6 +229,12 @@ void vehicleSatusCallback(const asv_msgs::VehicleStatus::ConstPtr& inmsg)
     
     kv.key = "helm_mode";
     kv.value = helm_mode;
+    hb.values.push_back(kv);
+    
+    kv.key = "moos_wpt_index";
+    std::stringstream ss;
+    ss << moos_wpt_index;
+    kv.value = ss.str();
     hb.values.push_back(kv);
 
     kv.key = "state";
@@ -339,6 +352,7 @@ int main(int argc, char **argv)
     ros::Subscriber dheading_sub = n.subscribe("/moos/desired_heading",10,desiredHeadingCallback);
     ros::Subscriber obstacle_distance_sub =  n.subscribe("/obstacle_distance",10,obstacleDistanceCallback);
     ros::Subscriber vehicle_state_sub =  n.subscribe("/vehicle_status",10,vehicleSatusCallback);
+    ros::Subscriber moos_wpt_index_sub = n.subscribe("/moos/wpt_index",10,moosWptIndexCallback);
     
     ros::Timer timer = n.createTimer(ros::Duration(0.1),sendHeadingHold);
     
