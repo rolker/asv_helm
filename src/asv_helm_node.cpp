@@ -13,10 +13,12 @@
 #include "asv_msgs//VehicleStatus.h"
 #include "asv_srvs/VehicleState.h"
 #include "asv_srvs/PilotControl.h"
+#include "asv_msgs/AISContact.h"
 #include "geometry_msgs/TwistStamped.h"
 #include "geographic_msgs/GeoPointStamped.h"
 #include "marine_msgs/NavEulerStamped.h"
 #include "marine_msgs/Heartbeat.h"
+#include "marine_msgs/Contact.h"
 #include "project11/mutex_protected_bag_writer.h"
 #include <regex>
 #include "boost/date_time/posix_time/posix_time.hpp"
@@ -29,6 +31,7 @@ ros::Publisher heading_pub;
 ros::Publisher speed_pub;
 ros::Publisher speed_modulation_pub;
 ros::Publisher heartbeat_pub;
+ros::Publisher contact_pub;
 
 
 double heading;
@@ -216,6 +219,31 @@ std::string boolToString(bool value)
     return "false";
 }
 
+void aisContactCallback(const asv_msgs::AISContact::ConstPtr& inmsg)
+{
+    marine_msgs::Contact c;
+    c.contact_source = marine_msgs::Contact::CONTACT_SOURCE_AIS;
+    
+    c.header = inmsg->header;
+    c.mmsi = inmsg->mmsi;
+    c.name = inmsg->name;
+    c.callsign = inmsg->callsign;
+    
+    c.position.latitude = inmsg->position.latitude;
+    c.position.longitude = inmsg->position.longitude;
+    
+    c.cog = inmsg->cog;
+    c.sog = inmsg->sog;
+    c.heading = inmsg->heading;
+    
+    c.dimension_to_stbd = inmsg->dimension_to_stbd;
+    c.dimension_to_port = inmsg->dimension_to_port;
+    c.dimension_to_bow = inmsg->dimension_to_bow;
+    c.dimension_to_stern = inmsg->dimension_to_stern;
+
+    contact_pub.publish(c);
+}
+
 void vehicleSatusCallback(const asv_msgs::VehicleStatus::ConstPtr& inmsg)
 {
     marine_msgs::Heartbeat hb;
@@ -342,6 +370,7 @@ int main(int argc, char **argv)
     speed_pub = n.advertise<geometry_msgs::TwistStamped>("/sog",1);
     speed_modulation_pub = n.advertise<std_msgs::Float32>("/speed_modulation",1);
     heartbeat_pub = n.advertise<marine_msgs::Heartbeat>("/heartbeat", 10);
+    contact_pub = n.advertise<marine_msgs::Contact>("/contact",10);
 
     ros::Subscriber asv_helm_sub = n.subscribe("/cmd_vel",5,twistCallback);
     ros::Subscriber asv_position_sub = n.subscribe("/sensor/vehicle/position",10,positionCallback);
@@ -353,6 +382,7 @@ int main(int argc, char **argv)
     ros::Subscriber obstacle_distance_sub =  n.subscribe("/obstacle_distance",10,obstacleDistanceCallback);
     ros::Subscriber vehicle_state_sub =  n.subscribe("/vehicle_status",10,vehicleSatusCallback);
     ros::Subscriber moos_wpt_index_sub = n.subscribe("/moos/wpt_index",10,moosWptIndexCallback);
+    ros::Subscriber ais_contact_sub = n.subscribe("/sensor/ais/contact",10,aisContactCallback);
     
     ros::Timer timer = n.createTimer(ros::Duration(0.1),sendHeadingHold);
     
