@@ -8,8 +8,6 @@ add_compile_options(-std=c++11)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  asv_msgs
-  asv_srvs
   geometry_msgs
   geographic_msgs
   marine_msgs
@@ -110,7 +108,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES asv_helm
-  CATKIN_DEPENDS asv_msgs asv_srvs geometry_msgs roscpp project11
+  CATKIN_DEPENDS geometry_msgs roscpp project11
 #  DEPENDS system_lib
 )
 

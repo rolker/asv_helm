@@ -7,14 +7,8 @@
 #include "std_msgs/Bool.h"
 #include "std_msgs/Float32.h"
 #include "std_msgs/String.h"
-#include "asv_msgs/HeadingHold.h"
-#include "asv_msgs/HeadingStamped.h"
-#include "asv_msgs/BasicPositionStamped.h"
-#include "asv_msgs//VehicleStatus.h"
-#include "asv_srvs/VehicleState.h"
-#include "asv_srvs/PilotControl.h"
-#include "asv_msgs/AISContact.h"
 #include "geometry_msgs/TwistStamped.h"
+#include "geometry_msgs/Twist.h"
 #include "geographic_msgs/GeoPointStamped.h"
 #include "marine_msgs/NavEulerStamped.h"
 #include "marine_msgs/Heartbeat.h"
@@ -66,35 +60,11 @@ void twistCallback(const geometry_msgs::TwistStamped::ConstPtr& msg)
     last_time = msg->header.stamp;
 }
 
-void positionCallback(const asv_msgs::BasicPositionStamped::ConstPtr& inmsg)
+void headingCallback(const marine_msgs::NavEulerStamped::ConstPtr& msg)
 {
-    geographic_msgs::GeoPointStamped gps;
-    gps.header = inmsg->header;
-    gps.position.latitude = inmsg->basic_position.position.latitude;
-    gps.position.longitude = inmsg->basic_position.position.longitude;
-    position_pub.publish(gps);
-    if(ros::Time::now() > ros::TIME_MIN)
-        log_bag.write("/position",ros::Time::now(),gps);
-    
-    geometry_msgs::TwistStamped ts;
-    ts.header = inmsg->header;
-    ts.twist.linear.x = inmsg->basic_position.sog;
-    speed_pub.publish(ts);
-    if(ros::Time::now() > ros::TIME_MIN)
-        log_bag.write("/sog",ros::Time::now(),ts);
-
+    last_boat_heading = msg->orientation.heading;
 }
 
-void headingCallback(const asv_msgs::HeadingStamped::ConstPtr& msg)
-{
-    last_boat_heading = msg->heading.heading;
-    marine_msgs::NavEulerStamped nes;
-    nes.header = msg->header;
-    nes.orientation.heading = msg->heading.heading*180.0/M_PI;
-    heading_pub.publish(nes);
-    if(ros::Time::now() > ros::TIME_MIN)
-        log_bag.write("/heading",ros::Time::now(),nes);
-}
 
 void obstacleDistanceCallback(const std_msgs::Float32::ConstPtr& inmsg)
 {
@@ -128,78 +98,10 @@ void desiredHeadingCallback(const marine_msgs::NavEulerStamped::ConstPtr& inmsg)
     desired_heading_time = inmsg->header.stamp;
 }
 
-void sendHeadingHold(const ros::TimerEvent event)
-{
-    asv_msgs::HeadingHold asvMsg;
-    bool doDesired = true;
-    if (!last_time.isZero())
-    {
-        if(event.last_real-last_time>ros::Duration(.5))
-        {
-            throttle = 0.0;
-            rudder = 0.0;
-        }
-        else
-            doDesired = false;
-    }
-
-    ros::Duration delta_t = event.current_real-event.last_real;
-    heading = last_boat_heading + rudder; //*delta_t.toSec();
-    heading = fmod(heading,M_PI*2.0);
-    if(heading < 0.0)
-        heading += M_PI*2.0;
-    
-    asvMsg.heading.heading = heading;
-    if(doDesired)
-    {
-        asvMsg.thrust.type = asv_msgs::Thrust::THRUST_SPEED;
-    }
-    else
-    {
-        asvMsg.thrust.type = asv_msgs::Thrust::THRUST_THROTTLE;
-    }
-    //asvMsg.thrust.type = asv_msgs::Thrust::THRUST_SPEED;
-    asvMsg.thrust.value = throttle*100.0;
-    asvMsg.header.stamp = event.current_real;
-    if(doDesired)
-    {
-        if (event.current_real - desired_heading_time < ros::Duration(.5) && event.current_real - desired_speed_time < ros::Duration(.5))
-        {
-            asvMsg.header.stamp = desired_heading_time;
-            asvMsg.heading.heading = desired_heading*M_PI/180.0;
-            asvMsg.thrust.value = desired_speed*speed_modulation;
-        }
-        //else
-          //  std::cerr << "asv_helm: desired values timeout: " << event.current_real << ", " << desired_heading_time << ", " << desired_speed_time << std::endl;
-    }
-    asv_helm_pub.publish(asvMsg);
-    if(ros::Time::now() > ros::TIME_MIN)
-        log_bag.write("/control/drive/heading_hold",ros::Time::now(),asvMsg);
-}
 
 void activeCallback(const std_msgs::Bool::ConstPtr& inmsg)
 {
     active = inmsg->data;
-    if(inmsg->data)
-    {
-        asv_srvs::VehicleState vs;
-        vs.request.desired_state = asv_srvs::VehicleStateRequest::VP_STATE_ACTIVE;
-        ros::service::call("/control/vehicle/state",vs);
-        
-        asv_srvs::PilotControl pc;
-        pc.request.control_request = true;
-        ros::service::call("/control/vehicle/pilot",pc);
-        
-        std_msgs::Bool inhibit;
-        inhibit.data = false;
-        asv_inhibit_pub.publish(inhibit);
-    }
-    else
-    {
-        asv_srvs::PilotControl pc;
-        pc.request.control_request = false;
-        ros::service::call("/control/vehicle/pilot",pc);
-    }
 }
 
 void helmModeCallback(const std_msgs::String::ConstPtr& inmsg)
@@ -219,33 +121,45 @@ std::string boolToString(bool value)
     return "false";
 }
 
-void aisContactCallback(const asv_msgs::AISContact::ConstPtr& inmsg)
-{
-    marine_msgs::Contact c;
-    c.contact_source = marine_msgs::Contact::CONTACT_SOURCE_AIS;
-    
-    c.header = inmsg->header;
-    c.mmsi = inmsg->mmsi;
-    c.name = inmsg->name;
-    c.callsign = inmsg->callsign;
-    
-    c.position.latitude = inmsg->position.latitude;
-    c.position.longitude = inmsg->position.longitude;
-    
-    c.cog = inmsg->cog;
-    c.sog = inmsg->sog;
-    c.heading = inmsg->heading;
-    
-    c.dimension_to_stbd = inmsg->dimension_to_stbd;
-    c.dimension_to_port = inmsg->dimension_to_port;
-    c.dimension_to_bow = inmsg->dimension_to_bow;
-    c.dimension_to_stern = inmsg->dimension_to_stern;
 
-    contact_pub.publish(c);
-}
-
-void vehicleSatusCallback(const asv_msgs::VehicleStatus::ConstPtr& inmsg)
+void vehicleSatusCallback(const ros::TimerEvent event)
 {
+    //std::cerr << "status callback: " << " active: " << active << std::endl;
+    if(active)
+    {
+        bool doDesired = true;
+        if (!last_time.isZero())
+        {
+            if(event.last_real-last_time>ros::Duration(.5))
+            {
+                throttle = 0.0;
+                rudder = 0.0;
+            }
+            else
+                doDesired = false;
+        }
+        if(doDesired)
+        {
+            if (event.current_real - desired_heading_time < ros::Duration(.5) && event.current_real - desired_speed_time < ros::Duration(.5))
+            {
+                //std::cerr << "desired: " << desired_heading << "\tlast boat heading: " << last_boat_heading << std::endl;
+                double steering_angle = (desired_heading-last_boat_heading)*M_PI/180.0;
+                if(steering_angle > M_PI)
+                    steering_angle -= 2.0*M_PI;
+                if(steering_angle < -M_PI)
+                    steering_angle += 2.0*M_PI;
+
+                //std::cerr << "steering_angle: " << steering_angle << std::endl;
+                geometry_msgs::Twist t;
+                t.linear.x = desired_speed;
+                t.angular.z = steering_angle;
+                asv_helm_pub.publish(t);
+            }
+        }
+        
+        
+    }
+    
     marine_msgs::Heartbeat hb;
     hb.header.stamp = ros::Time::now();
 
@@ -264,79 +178,6 @@ void vehicleSatusCallback(const asv_msgs::VehicleStatus::ConstPtr& inmsg)
     ss << moos_wpt_index;
     kv.value = ss.str();
     hb.values.push_back(kv);
-
-    kv.key = "state";
-    switch(inmsg->vehicle_state)
-    {
-        case asv_msgs::VehicleStatus::VP_STATE_RESET:
-            kv.value = "reset";
-            break;
-        case asv_msgs::VehicleStatus::VP_STATE_INITIAL:
-            kv.value = "initial";
-            break;
-        case asv_msgs::VehicleStatus::VP_STATE_CONFIG:
-            kv.value = "config";
-            break;
-        case asv_msgs::VehicleStatus::VP_STATE_ARMED:
-            kv.value = "armed";
-            break;
-        case asv_msgs::VehicleStatus::VP_STATE_PAUSE:
-            kv.value = "pause";
-            break;
-        case asv_msgs::VehicleStatus::VP_STATE_ACTIVE:
-            kv.value = "active";
-            break;
-        case asv_msgs::VehicleStatus::VP_STATE_RECOVER:
-            kv.value = "recover";
-            break;
-        case asv_msgs::VehicleStatus::VP_STATE_MANNED:
-            kv.value = "manned";
-            break;
-        case asv_msgs::VehicleStatus::VP_STATE_EMERGENCY:
-            kv.value = "emergency";
-            break;
-        default:
-            kv.value = "unknown";
-    }
-    hb.values.push_back(kv);
-    
-    
-    kv.key = "state_reason";
-    kv.value = inmsg->vehicle_state_reason;
-    hb.values.push_back(kv);
-    
-    kv.key = "pilot_control";
-    kv.value =inmsg->pilot_control;
-    hb.values.push_back(kv);
-    
-    kv.key = "ros_pilot_mode";
-    switch(inmsg->ros_pilot_mode)
-    {
-        case asv_msgs::VehicleStatus::PILOT_NOT_IN_COMMAND:
-            kv.value = "not in command";
-            break;
-        case asv_msgs::VehicleStatus::PILOT_INACTIVE:
-            kv.value = "inactive";
-            break;
-        case asv_msgs::VehicleStatus::PILOT_INHIBITED:
-            kv.value = "inhibited";
-            break;
-        case asv_msgs::VehicleStatus::PILOT_DIRECT_DRIVE:
-            kv.value = "direct drive";
-            break;
-        case asv_msgs::VehicleStatus::PILOT_HEADING_HOLD:
-            kv.value = "heading hold";
-            break;
-        case asv_msgs::VehicleStatus::PILOT_SEEK_POSITION:
-            kv.value = "seek position";
-            break;
-        case asv_msgs::VehicleStatus::PILOT_TRACK_FOLLOW:
-            kv.value = "track follow";
-            break;
-        default:
-            kv.value = "unknown";
-    }
-    hb.values.push_back(kv);
     
     heartbeat_pub.publish(hb);
     if(ros::Time::now() > ros::TIME_MIN)
@@ -353,6 +194,7 @@ int main(int argc, char **argv)
     last_boat_heading = 0.0;
     obstacle_distance = -1.0;
     speed_modulation = 1.0;
+    active = false;
     
     ros::init(argc, argv, "asv_helm");
     ros::NodeHandle n;
@@ -362,29 +204,20 @@ int main(int argc, char **argv)
     std::string log_filename = "nodes/asv_helm-"+iso_now+".bag";
     log_bag.open(log_filename, rosbag::bagmode::Write);
 
-    
-    asv_helm_pub = n.advertise<asv_msgs::HeadingHold>("/control/drive/heading_hold",1);
-    asv_inhibit_pub = n.advertise<std_msgs::Bool>("/control/drive/inhibit",1,true);
-    heading_pub = n.advertise<marine_msgs::NavEulerStamped>("/heading",1);
-    position_pub = n.advertise<geographic_msgs::GeoPointStamped>("/position",1);
-    speed_pub = n.advertise<geometry_msgs::TwistStamped>("/sog",1);
+    asv_helm_pub = n.advertise<geometry_msgs::Twist>("/cmd_vel",1);
     speed_modulation_pub = n.advertise<std_msgs::Float32>("/speed_modulation",1);
     heartbeat_pub = n.advertise<marine_msgs::Heartbeat>("/heartbeat", 10);
-    contact_pub = n.advertise<marine_msgs::Contact>("/contact",10);
 
-    ros::Subscriber asv_helm_sub = n.subscribe("/cmd_vel",5,twistCallback);
-    ros::Subscriber asv_position_sub = n.subscribe("/sensor/vehicle/position",10,positionCallback);
-    ros::Subscriber asv_heading_sub = n.subscribe("/sensor/vehicle/heading",5,headingCallback);
+    ros::Subscriber asv_helm_sub = n.subscribe("/remote/cmd_vel",5,twistCallback);
     ros::Subscriber activesub = n.subscribe("/active",10,activeCallback);
     ros::Subscriber helm_mode_sub = n.subscribe("/helm_mode",10,helmModeCallback);
     ros::Subscriber dspeed_sub = n.subscribe("/moos/desired_speed",10,desiredSpeedCallback);
     ros::Subscriber dheading_sub = n.subscribe("/moos/desired_heading",10,desiredHeadingCallback);
     ros::Subscriber obstacle_distance_sub =  n.subscribe("/obstacle_distance",10,obstacleDistanceCallback);
-    ros::Subscriber vehicle_state_sub =  n.subscribe("/vehicle_status",10,vehicleSatusCallback);
     ros::Subscriber moos_wpt_index_sub = n.subscribe("/moos/wpt_index",10,moosWptIndexCallback);
-    ros::Subscriber ais_contact_sub = n.subscribe("/sensor/ais/contact",10,aisContactCallback);
+    ros::Subscriber heading_sub = n.subscribe("/heading",10,headingCallback);
     
-    ros::Timer timer = n.createTimer(ros::Duration(0.1),sendHeadingHold);
+    ros::Timer timer = n.createTimer(ros::Duration(0.2),vehicleSatusCallback);
     
     ros::spin();
     
