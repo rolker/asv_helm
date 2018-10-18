@@ -54,7 +54,7 @@ MutexProtectedBagWriter log_bag;
 
 void twistCallback(const geometry_msgs::TwistStamped::ConstPtr& msg)
 {
-    throttle = msg->twist.linear.x;
+    throttle = msg->twist.linear.x/2.75;
     rudder = -msg->twist.angular.z;
     
     last_time = msg->header.stamp;
@@ -152,12 +152,17 @@ void vehicleSatusCallback(const ros::TimerEvent event)
                 //std::cerr << "steering_angle: " << steering_angle << std::endl;
                 geometry_msgs::Twist t;
                 t.linear.x = desired_speed;
-                t.angular.z = steering_angle;
+                t.angular.z = -steering_angle;
                 asv_helm_pub.publish(t);
             }
         }
-        
-        
+        else
+        {
+            geometry_msgs::Twist t;
+            t.linear.x = throttle*2.75;
+            t.angular.z = -rudder;
+            asv_helm_pub.publish(t);
+        }
     }
     
     marine_msgs::Heartbeat hb;
@@ -208,7 +213,7 @@ int main(int argc, char **argv)
     speed_modulation_pub = n.advertise<std_msgs::Float32>("/speed_modulation",1);
     heartbeat_pub = n.advertise<marine_msgs::Heartbeat>("/heartbeat", 10);
 
-    ros::Subscriber asv_helm_sub = n.subscribe("/remote/cmd_vel",5,twistCallback);
+    ros::Subscriber asv_helm_sub = n.subscribe("/remote/0/cmd_vel",5,twistCallback);
     ros::Subscriber activesub = n.subscribe("/active",10,activeCallback);
     ros::Subscriber helm_mode_sub = n.subscribe("/helm_mode",10,helmModeCallback);
     ros::Subscriber dspeed_sub = n.subscribe("/moos/desired_speed",10,desiredSpeedCallback);
