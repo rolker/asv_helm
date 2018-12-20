@@ -128,6 +128,7 @@ void vehicleSatusCallback(const ros::TimerEvent event)
     if(active)
     {
         bool doDesired = true;
+        std::cerr << "last_real: " << event.last_real << " last_time: " << last_time << std::endl;
         if (!last_time.isZero())
         {
             if(event.last_real-last_time>ros::Duration(.5))
