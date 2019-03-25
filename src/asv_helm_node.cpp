@@ -13,6 +13,7 @@
 #include "marine_msgs/NavEulerStamped.h"
 #include "marine_msgs/Heartbeat.h"
 #include "marine_msgs/Contact.h"
+#include "marine_msgs/Helm.h"
 #include "project11/mutex_protected_bag_writer.h"
 #include <regex>
 #include "boost/date_time/posix_time/posix_time.hpp"
@@ -56,6 +57,14 @@ void twistCallback(const geometry_msgs::TwistStamped::ConstPtr& msg)
 {
     throttle = msg->twist.linear.x/2.75;
     rudder = -msg->twist.angular.z;
+    
+    last_time = msg->header.stamp;
+}
+
+void helmCallback(const marine_msgs::Helm::ConstPtr& msg)
+{
+    throttle = msg->throttle;
+    rudder = msg->rudder;
     
     last_time = msg->header.stamp;
 }
@@ -222,6 +231,7 @@ int main(int argc, char **argv)
     ros::Subscriber obstacle_distance_sub =  n.subscribe("/obstacle_distance",10,obstacleDistanceCallback);
     ros::Subscriber moos_wpt_index_sub = n.subscribe("/moos/wpt_index",10,moosWptIndexCallback);
     ros::Subscriber heading_sub = n.subscribe("/heading",10,headingCallback);
+    ros::Subscriber helm_sub = n.subscribe("/helm",10,helmCallback);
     
     ros::Timer timer = n.createTimer(ros::Duration(0.2),vehicleSatusCallback);
     
