@@ -44,14 +44,10 @@ ros::Time desired_heading_time;
 float obstacle_distance;
 float speed_modulation;
 
-
-bool active;
 std::string helm_mode;
-int moos_wpt_index = -1;
-
+int current_line = -1;
 
 MutexProtectedBagWriter log_bag;
-
 
 void twistCallback(const geometry_msgs::TwistStamped::ConstPtr& msg)
 {
@@ -107,20 +103,14 @@ void desiredHeadingCallback(const marine_msgs::NavEulerStamped::ConstPtr& inmsg)
     desired_heading_time = inmsg->header.stamp;
 }
 
-
-void activeCallback(const std_msgs::Bool::ConstPtr& inmsg)
-{
-    active = inmsg->data;
-}
-
 void helmModeCallback(const std_msgs::String::ConstPtr& inmsg)
 {
     helm_mode = inmsg->data;
 }
 
-void moosWptIndexCallback(const std_msgs::Int32::ConstPtr& inmsg)
+void currentLineCallback(const std_msgs::Int32::ConstPtr& inmsg)
 {
-    moos_wpt_index = inmsg->data;
+    current_line = inmsg->data;
 }
 
 std::string boolToString(bool value)
@@ -134,7 +124,7 @@ std::string boolToString(bool value)
 void vehicleSatusCallback(const ros::TimerEvent event)
 {
     //std::cerr << "status callback: " << " active: " << active << std::endl;
-    if(active)
+    if(helm_mode != "standby")
     {
         bool doDesired = true;
         //std::cerr << "last_real: " << event.last_real << " last_time: " << last_time << std::endl;
@@ -180,17 +170,13 @@ void vehicleSatusCallback(const ros::TimerEvent event)
 
     marine_msgs::KeyValue kv;
 
-    kv.key = "active";
-    kv.value = boolToString(active);
-    hb.values.push_back(kv);
-    
     kv.key = "helm_mode";
     kv.value = helm_mode;
     hb.values.push_back(kv);
     
-    kv.key = "moos_wpt_index";
+    kv.key = "current_line";
     std::stringstream ss;
-    ss << moos_wpt_index;
+    ss << current_line;
     kv.value = ss.str();
     hb.values.push_back(kv);
     
@@ -209,7 +195,7 @@ int main(int argc, char **argv)
     last_boat_heading = 0.0;
     obstacle_distance = -1.0;
     speed_modulation = 1.0;
-    active = false;
+    helm_mode = "standby";
     
     ros::init(argc, argv, "asv_helm");
     ros::NodeHandle n;
@@ -224,12 +210,11 @@ int main(int argc, char **argv)
     heartbeat_pub = n.advertise<marine_msgs::Heartbeat>("/heartbeat", 10);
 
     ros::Subscriber asv_helm_sub = n.subscribe("/remote/0/cmd_vel",5,twistCallback);
-    ros::Subscriber activesub = n.subscribe("/active",10,activeCallback);
     ros::Subscriber helm_mode_sub = n.subscribe("/helm_mode",10,helmModeCallback);
     ros::Subscriber dspeed_sub = n.subscribe("/project11/desired_speed",10,desiredSpeedCallback);
     ros::Subscriber dheading_sub = n.subscribe("/project11/desired_heading",10,desiredHeadingCallback);
     ros::Subscriber obstacle_distance_sub =  n.subscribe("/obstacle_distance",10,obstacleDistanceCallback);
-    ros::Subscriber moos_wpt_index_sub = n.subscribe("/moos/wpt_index",10,moosWptIndexCallback);
+    ros::Subscriber current_line_sub = n.subscribe("/project11/mission_manager/current_line",10,currentLineCallback);
     ros::Subscriber heading_sub = n.subscribe("/heading",10,headingCallback);
     ros::Subscriber helm_sub = n.subscribe("/helm",10,helmCallback);
     
