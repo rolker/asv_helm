@@ -14,7 +14,7 @@
 #include "marine_msgs/Heartbeat.h"
 #include "marine_msgs/Contact.h"
 #include "marine_msgs/Helm.h"
-#include "project11/mutex_protected_bag_writer.h"
+//#include "project11/mutex_protected_bag_writer.h"
 #include <regex>
 #include "boost/date_time/posix_time/posix_time.hpp"
 #include "std_msgs/Int32.h"
@@ -47,7 +47,7 @@ float speed_modulation;
 std::string helm_mode;
 int current_line = -1;
 
-MutexProtectedBagWriter log_bag;
+//MutexProtectedBagWriter log_bag;
 
 void twistCallback(const geometry_msgs::TwistStamped::ConstPtr& msg)
 {
@@ -86,8 +86,8 @@ void obstacleDistanceCallback(const std_msgs::Float32::ConstPtr& inmsg)
     std_msgs::Float32 sm;
     sm.data = speed_modulation;
     speed_modulation_pub.publish(sm);
-    if(ros::Time::now() > ros::TIME_MIN)
-        log_bag.write("/speed_modulation",ros::Time::now(),sm);
+//     if(ros::Time::now() > ros::TIME_MIN)
+//         log_bag.write("/speed_modulation",ros::Time::now(),sm);
 
 }
 
@@ -181,8 +181,8 @@ void vehicleSatusCallback(const ros::TimerEvent event)
     hb.values.push_back(kv);
     
     heartbeat_pub.publish(hb);
-    if(ros::Time::now() > ros::TIME_MIN)
-        log_bag.write("/heartbeat",ros::Time::now(),hb);
+//     if(ros::Time::now() > ros::TIME_MIN)
+//         log_bag.write("/heartbeat",ros::Time::now(),hb);
 }
 
 
@@ -199,11 +199,6 @@ int main(int argc, char **argv)
     
     ros::init(argc, argv, "asv_helm");
     ros::NodeHandle n;
-
-    boost::posix_time::ptime now = ros::WallTime::now().toBoost();
-    std::string iso_now = std::regex_replace(boost::posix_time::to_iso_extended_string(now),std::regex(":"),"-");
-    std::string log_filename = "nodes/asv_helm-"+iso_now+".bag";
-    log_bag.open(log_filename, rosbag::bagmode::Write);
 
     asv_helm_pub = n.advertise<geometry_msgs::Twist>("/cmd_vel",1);
     speed_modulation_pub = n.advertise<std_msgs::Float32>("/speed_modulation",1);
@@ -222,7 +217,7 @@ int main(int argc, char **argv)
     
     ros::spin();
     
-    log_bag.close();
+    //log_bag.close();
     
     return 0;
 }
