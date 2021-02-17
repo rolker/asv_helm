@@ -184,17 +184,17 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "asv_helm");
     ros::NodeHandle n;
 
-    asv_helm_pub = n.advertise<geometry_msgs::Twist>("/cmd_vel",1);
-    speed_modulation_pub = n.advertise<std_msgs::Float32>("/speed_modulation",1);
-    heartbeat_pub = n.advertise<marine_msgs::Heartbeat>("/heartbeat", 10);
+    asv_helm_pub = n.advertise<geometry_msgs::Twist>("cmd_vel",1);
+    speed_modulation_pub = n.advertise<std_msgs::Float32>("speed_modulation",1);
+    heartbeat_pub = n.advertise<marine_msgs::Heartbeat>("project11/heartbeat", 10);
 
     ros::Subscriber asv_helm_sub = n.subscribe("/remote/0/cmd_vel",5,twistCallback);
-    ros::Subscriber piloting_mode_sub = n.subscribe("/project11/piloting_mode",10,helmModeCallback);
-    ros::Subscriber dspeed_sub = n.subscribe("/project11/desired_speed",10,desiredSpeedCallback);
-    ros::Subscriber dheading_sub = n.subscribe("/project11/desired_heading",10,desiredHeadingCallback);
-    ros::Subscriber obstacle_distance_sub =  n.subscribe("/obstacle_distance",10,obstacleDistanceCallback);
-    ros::Subscriber heading_sub = n.subscribe("/heading",10,headingCallback);
-    ros::Subscriber helm_sub = n.subscribe("/helm",10,helmCallback);
+    ros::Subscriber piloting_mode_sub = n.subscribe("project11/piloting_mode",10,helmModeCallback);
+    ros::Subscriber dspeed_sub = n.subscribe("project11/desired_speed",10,desiredSpeedCallback);
+    ros::Subscriber dheading_sub = n.subscribe("project11/desired_heading",10,desiredHeadingCallback);
+    ros::Subscriber obstacle_distance_sub =  n.subscribe("obstacle_distance",10,obstacleDistanceCallback);
+    ros::Subscriber heading_sub = n.subscribe("heading",10,headingCallback);
+    ros::Subscriber helm_sub = n.subscribe("project11/helm",10,helmCallback);
     
     ros::Timer timer = n.createTimer(ros::Duration(0.2),vehicleSatusCallback);
     
