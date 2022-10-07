@@ -67,7 +67,7 @@ int main(int argc, char **argv)
   
   ros::Subscriber have_commands_sub;
   if(sim_type == "asv_sim")
-    have_commands_sub = n.subscribe("asv_sim/have_commands", 10, haveCommandsCallback);
+    have_commands_sub = n.subscribe("have_commands", 10, haveCommandsCallback);
   
   ros::Timer gazebo_status_timer;
   if(sim_type == "gazebo")
