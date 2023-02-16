@@ -6,14 +6,14 @@
 #include "ros/ros.h"
 #include "std_msgs/Float32.h"
 #include "std_msgs/Bool.h"
-#include "marine_msgs/Helm.h"
-#include "marine_msgs/Heartbeat.h"
+#include "project11_msgs/Helm.h"
+#include "project11_msgs/Heartbeat.h"
 
 ros::Publisher throttle_pub;
 ros::Publisher rudder_pub;
 ros::Publisher status_pub;
 
-void helmCallback(const marine_msgs::Helm::ConstPtr& msg)
+void helmCallback(const project11_msgs::Helm::ConstPtr& msg)
 {
   std_msgs::Float32 throttle_msg;
   throttle_msg.data = msg->throttle;
@@ -25,9 +25,9 @@ void helmCallback(const marine_msgs::Helm::ConstPtr& msg)
 
 void haveCommandsCallback(const std_msgs::Bool::ConstPtr& msg)
 {
-  marine_msgs::Heartbeat hb;
+  project11_msgs::Heartbeat hb;
   hb.header.stamp = ros::Time::now();
-  marine_msgs::KeyValue kv;
+  project11_msgs::KeyValue kv;
   kv.key = "sim";
   kv.value = "asv_sim";
   hb.values.push_back(kv);
@@ -42,9 +42,9 @@ void haveCommandsCallback(const std_msgs::Bool::ConstPtr& msg)
 
 void gazeboStatusCallback(const ros::TimerEvent& event)
 {
-  marine_msgs::Heartbeat hb;
+  project11_msgs::Heartbeat hb;
   hb.header.stamp = event.current_real;
-  marine_msgs::KeyValue kv;
+  project11_msgs::KeyValue kv;
   kv.key = "sim";
   kv.value = "gazebo";
   hb.values.push_back(kv);
@@ -58,7 +58,7 @@ int main(int argc, char **argv)
 
   throttle_pub = n.advertise<std_msgs::Float32>("throttle",1);
   rudder_pub = n.advertise<std_msgs::Float32>("rudder",1);
-  status_pub = n.advertise<marine_msgs::Heartbeat>("project11/status/helm",1);
+  status_pub = n.advertise<project11_msgs::Heartbeat>("project11/status/helm",1);
 
   ros::Subscriber helm_sub = n.subscribe("helm",10,helmCallback);
   

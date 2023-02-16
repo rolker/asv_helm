@@ -10,7 +10,7 @@ add_compile_options(-std=c++11)
 find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   geographic_msgs
-  marine_msgs
+  project11_msgs
   roscpp
   rosbag
   project11
