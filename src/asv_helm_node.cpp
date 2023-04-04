@@ -8,10 +8,18 @@
 #include "std_msgs/Bool.h"
 #include "project11_msgs/Helm.h"
 #include "project11_msgs/Heartbeat.h"
+#include "project11/pid.h"
+#include "nav_msgs/Odometry.h"
+#include "geometry_msgs/TwistStamped.h"
 
 ros::Publisher throttle_pub;
 ros::Publisher rudder_pub;
 ros::Publisher status_pub;
+
+nav_msgs::Odometry latest_odometry;
+project11::PID pid;
+double max_speed = 2.75;
+double max_yaw_speed = 0.5;
 
 void helmCallback(const project11_msgs::Helm::ConstPtr& msg)
 {
@@ -22,6 +30,35 @@ void helmCallback(const project11_msgs::Helm::ConstPtr& msg)
   rudder_msg.data = msg->rudder;
   rudder_pub.publish(rudder_msg);
 }
+
+void twistCallback(const geometry_msgs::TwistStamped::ConstPtr& msg)
+{
+  std_msgs::Float32 throttle_msg;
+  throttle_msg.data = msg->twist.linear.x/max_speed;
+  if(msg->header.stamp - latest_odometry.header.stamp < ros::Duration(1.0))
+  {
+    pid.setPoint(msg->twist.linear.x);
+    throttle_msg.data = pid.update(latest_odometry.twist.twist.linear.x, latest_odometry.header.stamp);
+  }
+  else
+    ROS_WARN_STREAM_THROTTLE(2.0,"No recent odometry for use with throttle PID");
+  throttle_msg.data = std::max(-1.0f, std::min(1.0f, throttle_msg.data));
+  std_msgs::Float32 rudder_msg;
+  rudder_msg.data = -msg->twist.angular.z/max_yaw_speed;
+  rudder_msg.data = std::max(-1.0f, std::min(1.0f, rudder_msg.data));
+  
+  float min_throttle = 0.5*std::abs(rudder_msg.data);
+  throttle_msg.data = std::max(throttle_msg.data, min_throttle);
+
+  throttle_pub.publish(throttle_msg);
+  rudder_pub.publish(rudder_msg);
+}
+
+void odometryCallback(const nav_msgs::Odometry::ConstPtr &msg)
+{
+  latest_odometry = *msg;
+}
+
 
 void haveCommandsCallback(const std_msgs::Bool::ConstPtr& msg)
 {
@@ -56,12 +93,17 @@ int main(int argc, char **argv)
   ros::init(argc, argv, "asv_helm");
   ros::NodeHandle n;
 
+  pid.configure(ros::NodeHandle("~/pid"));
+
   throttle_pub = n.advertise<std_msgs::Float32>("throttle",1);
   rudder_pub = n.advertise<std_msgs::Float32>("rudder",1);
   status_pub = n.advertise<project11_msgs::Heartbeat>("project11/status/helm",1);
 
   ros::Subscriber helm_sub = n.subscribe("helm",10,helmCallback);
-  
+  ros::Subscriber twist_sub = n.subscribe("cmd_vel",10,twistCallback);
+
+  ros::Subscriber odom_sub = n.subscribe("odom", 5, odometryCallback);
+
   std::string sim_type;
   ros::param::param<std::string>("~simType", sim_type, "asv_sim");
   

@@ -10,6 +10,8 @@ add_compile_options(-std=c++11)
 find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   geographic_msgs
+  nav_msgs
+  project11
   project11_msgs
   roscpp
   rosbag
@@ -108,7 +110,7 @@ find_package(catkin REQUIRED COMPONENTS
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES asv_helm
-  CATKIN_DEPENDS geometry_msgs roscpp project11
+  CATKIN_DEPENDS geometry_msgs  nav_msgs project11 project11_msgs roscpp
 #  DEPENDS system_lib
 )
 

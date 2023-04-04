@@ -51,6 +51,7 @@
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>geographic_msgs</build_depend>
+  <depend>nav_msgs</depend>
   <build_depend>project11_msgs</build_depend>
   <build_depend>roscpp</build_depend>
   <build_depend>rosbag</build_depend>
