@@ -48,7 +48,10 @@ void twistCallback(const geometry_msgs::TwistStamped::ConstPtr& msg)
   rudder_msg.data = std::max(-1.0f, std::min(1.0f, rudder_msg.data));
   
   float min_throttle = 0.5*std::abs(rudder_msg.data);
-  throttle_msg.data = std::max(throttle_msg.data, min_throttle);
+  if(msg->twist.linear.x > 0.0)
+    throttle_msg.data = std::max(throttle_msg.data, min_throttle);
+  else
+    throttle_msg.data = std::min(throttle_msg.data,-min_throttle);
 
   throttle_pub.publish(throttle_msg);
   rudder_pub.publish(rudder_msg);
