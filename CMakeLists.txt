@@ -15,12 +15,14 @@ find_package(project11 REQUIRED)
 find_package(project11_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 
-add_executable(${PROJECT_NAME}_node src/asv_helm_node.cpp)
+add_executable(${PROJECT_NAME} src/asv_helm_node.cpp)
 
-ament_target_dependencies(${PROJECT_NAME}_node geometry_msgs nav_msgs project11 project11_msgs rclcpp)
+ament_target_dependencies(${PROJECT_NAME} geometry_msgs nav_msgs project11 project11_msgs rclcpp)
 
-install(TARGETS ${PROJECT_NAME}_node
+install(TARGETS ${PROJECT_NAME}
   DESTINATION lib/${PROJECT_NAME}
 )
+
+install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 
 ament_package()

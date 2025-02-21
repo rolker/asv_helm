@@ -4,6 +4,7 @@
 // Copyright 2017, All rights reserved.
 
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp_lifecycle/lifecycle_node.hpp"
 #include "std_msgs/msg/float32.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "project11_msgs/msg/helm.hpp"
@@ -13,11 +14,17 @@
 #include "geometry_msgs/msg/twist_stamped.hpp"
 
 
-class ASVHelm: public rclcpp::Node
+class ASVHelm: public rclcpp_lifecycle::LifecycleNode
 {
 public:
+  using CallbackReturn = rclcpp_lifecycle::node_interfaces::LifecycleNodeInterface::CallbackReturn;
+
   ASVHelm()
-  :rclcpp::Node("asv_helm")
+  :rclcpp_lifecycle::LifecycleNode("asv_helm")
+  {
+  }
+  
+  CallbackReturn on_configure(const rclcpp_lifecycle::State& state) override
   {
     throttle_publisher_ = create_publisher<std_msgs::msg::Float32>("throttle",1);
     rudder_publisher_ = create_publisher<std_msgs::msg::Float32>("rudder",1);
@@ -29,6 +36,7 @@ public:
 
   
     have_commands_subscription_ = create_subscription<std_msgs::msg::Bool>("have_commands", 1, std::bind(&ASVHelm::haveCommandsCallback, this, std::placeholders::_1));
+    return LifecycleNode::on_configure(state);
   }
 
 private:
@@ -116,8 +124,8 @@ private:
 int main(int argc, char **argv)
 {
   rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<ASVHelm>());
-  rclcpp::shutdown();
+  auto node = std::make_shared<ASVHelm>();
+  rclcpp::spin(node->get_node_base_interface());
 
   return 0;
 }
